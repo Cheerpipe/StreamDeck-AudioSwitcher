@@ -106,9 +106,12 @@ void MyStreamDeckPlugin::KeyUpForAction(
   // we want the secondary devices. if state is 1, we want state 0, so we want
   // the primary device
   // Add a tertiary
-  const auto deviceId = (state == 1) ? settings.tertiaryDevice
-                                     : (state == 0) ? settings.secondaryDevice
-                                                    : settings.primaryDevice;
+  const auto deviceId
+    = (inAction == SET_ACTION_ID)
+        ? settings.primaryDevice
+        : (state == 1)
+            ? settings.tertiaryDevice
+            : (state == 0) ? settings.secondaryDevice : settings.primaryDevice;
   if (deviceId.empty()) {
     return;
   }
@@ -223,10 +226,7 @@ void MyStreamDeckPlugin::UpdateState(
   std::scoped_lock lock(mVisibleContextsMutex);
   if (action == SET_ACTION_ID) {
     mConnectionManager->SetState(
-      (activeDevice == settings.primaryDevice)
-        ? 0
-        : (activeDevice == settings.secondaryDevice) ? 1 : 2,
-      context);
+      activeDevice == settings.primaryDevice ? 0 : 1, context);
     return;
   }
 
