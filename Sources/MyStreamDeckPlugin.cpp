@@ -28,11 +28,12 @@ const char* TOGGLE_ACTION_ID = "com.fredemmott.audiooutputswitch.toggle";
 }// namespace
 
 void to_json(json& j, const AudioDeviceInfo& device) {
-  j = json({{"id", device.id},
-            {"interfaceName", device.interfaceName},
-            {"endpointName", device.endpointName},
-            {"displayName", device.displayName},
-            {"state", device.state}});
+  j = json(
+    {{"id", device.id},
+     {"interfaceName", device.interfaceName},
+     {"endpointName", device.endpointName},
+     {"displayName", device.displayName},
+     {"state", device.state}});
 }
 
 void to_json(json& j, const AudioDeviceState& state) {
@@ -104,9 +105,10 @@ void MyStreamDeckPlugin::KeyUpForAction(
   // this looks inverted - but if state is 0, we want to move to state 1, so
   // we want the secondary devices. if state is 1, we want state 0, so we want
   // the primary device
-  const auto deviceId = (state != 0 || inAction == SET_ACTION_ID)
-                          ? settings.primaryDevice
-                          : settings.secondaryDevice;
+  // Add a tertiary
+  const auto deviceId = (state == 1) ? settings.tertiaryDevice
+                                     : (state == 0) ? settings.secondaryDevice
+                                                    : settings.primaryDevice;
   if (deviceId.empty()) {
     return;
   }
@@ -172,9 +174,10 @@ void MyStreamDeckPlugin::SendToPlugin(
     const auto inputList = GetAudioDeviceList(AudioDeviceDirection::INPUT);
     mConnectionManager->SendToPropertyInspector(
       inAction, inContext,
-      json({{"event", event},
-            {"outputDevices", outputList},
-            {"inputDevices", inputList}}));
+      json(
+        {{"event", event},
+         {"outputDevices", outputList},
+         {"inputDevices", inputList}}));
     return;
   }
 }
@@ -188,6 +191,8 @@ MyStreamDeckPlugin::ButtonSettings MyStreamDeckPlugin::ButtonSettingsFromJSON(
     = EPLJSONUtils::GetStringByName(jsonSettings, "primary");
   settings.secondaryDevice
     = EPLJSONUtils::GetStringByName(jsonSettings, "secondary");
+  settings.tertiaryDevice
+    = EPLJSONUtils::GetStringByName(jsonSettings, "tertiary");
   settings.direction
     = EPLJSONUtils::GetStringByName(jsonSettings, "direction", "output")
           == "output"
@@ -212,12 +217,16 @@ void MyStreamDeckPlugin::UpdateState(
         : optionalDefaultDevice;
   ESDDebug(
     "setting active ID %s %s %s", activeDevice.c_str(),
-    settings.primaryDevice.c_str(), settings.secondaryDevice.c_str());
+    settings.primaryDevice.c_str(), settings.secondaryDevice.c_str(),
+    settings.tertiaryDevice.c_str());
 
   std::scoped_lock lock(mVisibleContextsMutex);
   if (action == SET_ACTION_ID) {
     mConnectionManager->SetState(
-      activeDevice == settings.primaryDevice ? 0 : 1, context);
+      (activeDevice == settings.primaryDevice)
+        ? 0
+        : (activeDevice == settings.secondaryDevice) ? 1 : 2,
+      context);
     return;
   }
 
@@ -225,6 +234,8 @@ void MyStreamDeckPlugin::UpdateState(
     mConnectionManager->SetState(0, context);
   } else if (activeDevice == settings.secondaryDevice) {
     mConnectionManager->SetState(1, context);
+  } else if (activeDevice == settings.tertiaryDevice) {
+    mConnectionManager->SetState(2, context);
   } else {
     mConnectionManager->ShowAlertForContext(context);
   }

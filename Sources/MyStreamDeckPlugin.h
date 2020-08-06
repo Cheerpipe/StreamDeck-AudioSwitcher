@@ -75,6 +75,7 @@ class MyStreamDeckPlugin : public ESDBasePlugin {
     AudioDeviceRole role;
     std::string primaryDevice;
     std::string secondaryDevice;
+    std::string tertiaryDevice;
   };
   struct Button {
     std::string action;
